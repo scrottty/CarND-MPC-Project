@@ -17,6 +17,8 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+const int POLYNOMIAL_ORDER = 3;
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -98,8 +100,38 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+          
+          // Fit a line to the waypoints. This creates a curve for the optimiser to assess against. The ideal path
+          // Convert the vector to eigen vectors and to the cars coordinate system
+          Eigen::VectorXd xvals = Eigen::VectorXd(ptsx.size());
+          Eigen::VectorXd yvals = Eigen::VectorXd(ptsy.size());
+          for (int i=0; i<ptsx.size(); i++)
+          {
+            double dtx = ptsx[i] - px;
+            double dty = ptsy[i] - py;
+            
+            xvals(i) = dtx*cos(psi) + dty*sin(psi);
+            yvals(i) = dty*cos(psi) - dtx*sin(psi);
+          }
+          auto coeffs = polyfit(xvals, yvals, POLYNOMIAL_ORDER);
+          
+          // Calculate the cross track error
+          // As we are in the cars cordinate system the cars position is 0
+          double cte = polyeval(coeffs, 0);
+          
+          // Calculate the orientation error
+          double epsi = -atan(coeffs[1]);
+          
+          // Create a state vector for the mpc
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+          
+          // Run the mpc
+          auto outputs = mpc.Solve(state, coeffs);
           double steer_value;
           double throttle_value;
+          steer_value = -outputs[0]/deg2rad(25);
+          throttle_value = outputs[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -113,13 +145,21 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          mpc_x_vals = mpc.mpc_x;
+          mpc_y_vals = mpc.mpc_y;
 
           msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          msgJson["mpc_y"] = mpc_y_vals; 
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
+          
+          for (int i=0; i<xvals.size(); i++)
+          {
+            next_x_vals.push_back(xvals[i]);
+            next_y_vals.push_back(yvals[i]);
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
@@ -139,6 +179,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
+          
           this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
