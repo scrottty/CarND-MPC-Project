@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 20;
-double dt = 0.05;
+size_t N = 10;
+double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -29,15 +29,16 @@ const double max_v = 80;
 const int cte_weight = 1;
 const int epsi_weight = 1;
 const int v_weight = 1;
-const int delta_weight = 1500;
+const int delta_weight = 3000;
 const int a_weight = 1;
 const int deltaChange_weight = 500;
 const int aChange_weight = 500;
 
-// Latency Values
+// Speed control
+double delta_current = 0.0;
+
+// Latency
 const double latency = 0.1;
-double delta_prev = 0.0;
-double a_prev = 0.0;
 
 // variable indicies
 size_t x_start = 0;
@@ -66,7 +67,7 @@ class FG_eval {
     
     // Calculate the referance velocity based upon the steering angle.
     // > the angle, the slower the vehicle
-    double ratio = (delta_prev*4/0.436332);
+    double ratio = (abs(delta_current)*5);
     std::cout << "ratio: " << ratio << std::endl;
     double ref_v = max_v + ratio*(min_v-max_v);
     
@@ -140,33 +141,8 @@ MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   bool ok = true;
-  size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
   
-  // Break out the variables
-  double x = state[0];
-  double y = state[1];
-  double psi = state[2];
-  double v = state[3];
-  double cte = state[4];
-  double epsi = state[5];
-  
-  // Update the initial values for the latency
-  // Predict the values forward at time t + latency
-  double x_new = x + v*cos(psi)*latency;
-  double y_new = y + v*sin(psi)*latency;
-  double psi_new = psi + v/Lf*delta_prev*latency;
-  double v_new = v + a_prev*latency;
-  double cte_new = cte + v*sin(epsi)*latency;
-  double epsi_new = epsi + v/Lf*delta_prev*latency;
-  
-  x = x_new;
-  y = y_new;
-  psi = psi_new;
-  v = v_new;
-  cte = cte_new;
-  epsi = epsi_new;
-
   // TODO: Set the number of model variables (includes both states and inputs).
   // For example: If the state is a 4 element vector, the actuators is a 2
   // element vector and there are 10 timesteps. The number of variables is:
@@ -177,6 +153,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   size_t n_vars = N*6 + (N-1)*2;
   // TODO: Set the number of constraints
   size_t n_constraints = N*6;
+  
+  // Break out the variables
+  double x = state[0];
+  double y = state[1];
+  double psi = state[2];
+  double v = state[3];
+  double cte = state[4];
+  double epsi = state[5];
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
@@ -243,6 +227,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // object that computes objective and constraints
   FG_eval fg_eval(coeffs);
+  // Set the delta_current for the speed control
+  delta_current = delta;
 
   //
   // NOTE: You don't have to worry about these options
@@ -291,8 +277,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   //
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
-  delta_prev = solution.x[delta_start];
-  a_prev = solution.x[a_start];
   
-  return {solution.x[delta_start],   solution.x[a_start]};
+  int latencyIdx = latency / dt;
+  
+  return {solution.x[delta_start+latencyIdx],   solution.x[a_start+latencyIdx]};
 }

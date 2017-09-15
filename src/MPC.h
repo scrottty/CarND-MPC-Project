@@ -14,6 +14,8 @@ class MPC {
   
   vector<double> mpc_x;
   vector<double> mpc_y;
+  
+  double delta;
 
   // Solve the model given an initial state and polynomial coefficients.
   // Return the first actuatotions.

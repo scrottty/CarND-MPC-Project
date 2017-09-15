@@ -93,6 +93,20 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j[1]["steering_angle"];
+          
+          // Update the initial values for the latency
+          // Predict the values forward at time t + latency
+//          const double Lf = 2.67;
+//          const double latency = 0.1;
+//          double x_new = px + v*cos(psi)*latency;
+//          double y_new = py + v*sin(psi)*latency;
+//          double psi_new = psi - v/Lf*delta*latency;
+//          double v_new = v + acceleration*latency;
+//          px = x_new;
+//          py = y_new;
+//          psi = psi_new;
+//          v = v_new;
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
@@ -117,21 +131,21 @@ int main() {
           
           // Calculate the cross track error
           // As we are in the cars cordinate system the cars position is 0
-          double cte = polyeval(coeffs, 0);
+          double cte = polyeval(coeffs, px);
           
           // Calculate the orientation error
           double epsi = -atan(coeffs[1]);
           
+          
           // Create a state vector for the mpc
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << 0,0,0, v, cte, epsi;
           
           // Run the mpc
+          mpc.delta = delta; // Set the steering angle for the speed to adjust
           auto outputs = mpc.Solve(state, coeffs);
-          double steer_value;
-          double throttle_value;
-          steer_value = -outputs[0]/deg2rad(25);
-          throttle_value = outputs[1];
+          double steer_value = -outputs[0]/deg2rad(25);
+          double throttle_value = outputs[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
