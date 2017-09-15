@@ -26,18 +26,18 @@ where `f(x)` is the polynomial fit describing the target trajectory and `ψdes(t
 The model has the following hyper-parameters to control the output performance:
 `N, dt, min_velocity, max_velocity, ẟ_error_weighting, Δẟ_error_weighting, Δa_error_weighting`
 
-`N` and `dt` control how far forward the model looks when optimising the path and the detail at which the path can be defined. These were chosen at 20 and 0.05 respectively which produces a 1 second horizon at a 0.05 second detail. They were selected as they produced the best result in regard to the car staying close to the intended trajectory. A larger `dt` resulted in the vehicle cutting corners as the detail of the optimised path was too coarse. `N` was then selected to produce a horizon of 1 second which suited the simulator course. A longer horizon could occasionally produce erroneous paths.
+`N` and `dt` control how far forward the model looks when optimising the path and the detail at which the path can be defined. These were chosen at 10 and 0.1 respectively which produces a 1 second horizon at a 0.1 second detail. Initially 0.05 and 20 were used as they provided better detail but as the speed was increased the steering needed to become more aggressive to turn the corners. The larger sample time of 0.1 solved this as the angle between position 0 and position 1 was now larger. `N` was then adjusted to produce the 1 second horizon that worked well for the simulator
 
-`Δa_error_weighting` was tuned to stop the vehicle from osscilating about the reference speed. This value was found to increase the speed stability without effecting the vehicles ability to slow down around the tight corners
+`Δa_error_weighting` was tuned to stop the vehicle from oscillating about the reference speed. This value was found to increase the speed stability without effecting the vehicles ability to slow down around the tight corners
 
 `ẟ_error_weighting, Δẟ_error_weighting` where tuned to find balance between the car getting 'speed wobbles' and being capable of turning tight corners when necessary. As the cars speed increased so did the tendency to start oscillating about the trajectory and so increasing these weights in the cost function limited the steerings ability to for rapid movements and therefore removed the oscillations.
 
 `min_velocity` and `max_velocity` were used to control the velocity of the vehicle. A ratio, based upon the steering angle, was used so the car would speed up on the straights and slow down around the corners. The following equations were used
 ```c++
-ratio = steering_angle * 4 / 25°
+ratio = steering_value * 5
 referance_velocity = max_velocity + ratio*(min_velocity-max_velocity)
 ```
-The final values (50 and 80) worked well in combination with the steering weights to produce a solution with the vehicle cornering well and being quick on the straights. I tried to push the upper velocity higher but it would cause the car to ride up on the curb after the right hand turn.
+where the `steering_value` is the predicted steering value at time `t+2`. This lets the car react before the corner rather than on it producing smoother cornering and more stable driving. The final values for `min_velocity` and `max_velocity` (50 and 80) worked well in combination with the steering weights and the `*5` to produce a solution with the vehicle cornering well and being quick on the straights.
 
 ### Preprocessing
 To make the calculations simpler the cars coordinate system was used as the reference. This meant that the coordinates from the simulator had to be converted, done with the following equations:
@@ -51,13 +51,9 @@ yvals(i) = dty * cos(ψ) - dtx * sin(ψ);
 Therefore the vehicles initial position is (0,0,0) simplifying the evaluation of the errors (`cte` and `eψ`).
 
 ### Latency
-To handle the 100ms latency in the model the model recalculates its position at time `t + latency` as the initial step of the MPC. The variables are recalculated using the kinematic equations described above. For `ψ`, `v`, `cte` and `eψ` the previous steering angle and acceleration are used in the calculation. This
-
-
-
-
-
-
-
-tuning of the control
-ask how to get the car to change speed
+To handle the 100ms latency, the outputs at time `t + latency` were passed back to the actuators instead of the outputs at tme `t`. eg.
+```c++
+latencyIdx = latency / dt
+return {solution.x[delta_start + latencyIdx] solution.x[a_start + latencyIdx]}
+```
+This meant that the vehicle would react to the using the correct outputs at the correct time. This does however increase need for the model to be accurate as it is now using outputs estimated using the model. As the model increases with time its inaccuracies get bigger. However with a latency of 0.1 this is not an issue as the model is suitable accurate within this time step.

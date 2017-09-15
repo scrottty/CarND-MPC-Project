@@ -29,13 +29,13 @@ const double max_v = 80;
 const int cte_weight = 1;
 const int epsi_weight = 1;
 const int v_weight = 1;
-const int delta_weight = 3000;
+const int delta_weight = 3500;
 const int a_weight = 1;
 const int deltaChange_weight = 500;
 const int aChange_weight = 500;
 
 // Speed control
-double delta_current = 0.0;
+double delta_future = 0.0;
 
 // Latency
 const double latency = 0.1;
@@ -67,7 +67,7 @@ class FG_eval {
     
     // Calculate the referance velocity based upon the steering angle.
     // > the angle, the slower the vehicle
-    double ratio = (abs(delta_current)*5);
+    double ratio = (abs(delta_future)*5);
     std::cout << "ratio: " << ratio << std::endl;
     double ref_v = max_v + ratio*(min_v-max_v);
     
@@ -228,7 +228,6 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // object that computes objective and constraints
   FG_eval fg_eval(coeffs);
   // Set the delta_current for the speed control
-  delta_current = delta;
 
   //
   // NOTE: You don't have to worry about these options
@@ -279,6 +278,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // creates a 2 element double vector.
   
   int latencyIdx = latency / dt;
+  
+  delta_future = solution.x[delta_start+2];
   
   return {solution.x[delta_start+latencyIdx],   solution.x[a_start+latencyIdx]};
 }

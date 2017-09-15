@@ -142,7 +142,6 @@ int main() {
           state << 0,0,0, v, cte, epsi;
           
           // Run the mpc
-          mpc.delta = delta; // Set the steering angle for the speed to adjust
           auto outputs = mpc.Solve(state, coeffs);
           double steer_value = -outputs[0]/deg2rad(25);
           double throttle_value = outputs[1];
