@@ -23,7 +23,7 @@ const double Lf = 2.67;
 
 // Reference Velocity
 const double min_v = 50;
-const double max_v = 80;
+const double max_v = 100;
 
 // Cost Function Weights
 const int cte_weight = 1;
@@ -39,6 +39,8 @@ double delta_future = 0.0;
 
 // Latency
 const double latency = 0.1;
+double delta_prev = 0.0;
+double a_prev = 0.0;
 
 // variable indicies
 size_t x_start = 0;
@@ -67,7 +69,7 @@ class FG_eval {
     
     // Calculate the referance velocity based upon the steering angle.
     // > the angle, the slower the vehicle
-    double ratio = (abs(delta_future)*5);
+    double ratio = (abs(delta_future)*10);
     std::cout << "ratio: " << ratio << std::endl;
     double ref_v = max_v + ratio*(min_v-max_v);
     
@@ -201,6 +203,12 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }
+  
+  // Set the first values of the delta and accelerator to the previous values to cause it to recalculate from that point
+  vars_lowerbound[delta_start] = delta_prev;
+  vars_upperbound[delta_start] = delta_prev;
+  vars_lowerbound[a_start] = a_prev;
+  vars_upperbound[a_start] = a_prev;
 
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
@@ -277,9 +285,15 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
   
+  // Latency Solution
+  // Calculate position of the actuations in the solution that will take place after the latency
   int latencyIdx = latency / dt;
+  // Save the actuations so they can be the start of the path on the next route
+  delta_prev = solution.x[delta_start+latencyIdx];
+  a_prev = solution.x[a_start+latencyIdx];
   
-  delta_future = solution.x[delta_start+2];
+  // Save the delta forward so the braking can preempt the corners
+  delta_future = solution.x[delta_start+3];
   
   return {solution.x[delta_start+latencyIdx],   solution.x[a_start+latencyIdx]};
 }

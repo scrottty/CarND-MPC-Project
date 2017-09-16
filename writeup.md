@@ -34,10 +34,10 @@ The model has the following hyper-parameters to control the output performance:
 
 `min_velocity` and `max_velocity` were used to control the velocity of the vehicle. A ratio, based upon the steering angle, was used so the car would speed up on the straights and slow down around the corners. The following equations were used
 ```c++
-ratio = steering_value * 5
+ratio = steering_value * 10
 referance_velocity = max_velocity + ratio*(min_velocity-max_velocity)
 ```
-where the `steering_value` is the predicted steering value at time `t+2`. This lets the car react before the corner rather than on it producing smoother cornering and more stable driving. The final values for `min_velocity` and `max_velocity` (50 and 80) worked well in combination with the steering weights and the `*5` to produce a solution with the vehicle cornering well and being quick on the straights.
+where the `steering_value` is the predicted steering value at time `t+3`. This lets the car react before the corner rather than on it producing smoother cornering and more stable driving. The final values for `min_velocity` and `max_velocity` (50 and 100) worked well in combination with the steering weights and the `*10` to produce a solution with the vehicle cornering well and being quick on the straights.
 
 ### Preprocessing
 To make the calculations simpler the cars coordinate system was used as the reference. This meant that the coordinates from the simulator had to be converted, done with the following equations:
@@ -55,5 +55,12 @@ To handle the 100ms latency, the outputs at time `t + latency` were passed back 
 ```c++
 latencyIdx = latency / dt
 return {solution.x[delta_start + latencyIdx] solution.x[a_start + latencyIdx]}
+```
+As well as this, the values were stored passed into the next iteration of the controller as the initial contrainsts for the delta and acceleration. This meant the next generated path would follow on from the previous latent path. It was done as follows:
+```cpp
+vars_lowerbound[delta_start] = delta_prev;
+vars_upperbound[delta_start] = delta_prev;
+vars_lowerbound[a_start] = a_prev;
+vars_upperbound[a_start] = a_prev;
 ```
 This meant that the vehicle would react to the using the correct outputs at the correct time. This does however increase need for the model to be accurate as it is now using outputs estimated using the model. As the model increases with time its inaccuracies get bigger. However with a latency of 0.1 this is not an issue as the model is suitable accurate within this time step.
